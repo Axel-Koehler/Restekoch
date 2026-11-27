@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Restekoch</title>
+<meta name="description" content="Gib ein, welche Zutaten du in welcher Menge hast. Restekoch erfindet daraus ein passendes Gericht.">
+<meta name="theme-color" content="#24502f">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Restekoch">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta property="og:title" content="Restekoch">
+<meta property="og:description" content="Koch mit dem, was noch da ist.">
+<meta property="og:image" content="/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&family=Caveat:wght@600&display=swap">
+<style>
+/* Layout: Kachel-Hero wie eine Küchenwand, darunter die Arbeitsfläche — Vorratsliste als Zettel links, Rezeptkarte rechts */
+:root{
+  --bg:#eef1e8; --counter:#e3e8da; --surface:#fffdf8; --fg:#1c231a; --muted:#5b6655; --line:#d4dacb;
+  --basil:#24502f; --basil-2:#2f6a3d; --basil-ink:#f4f8ef; --tomato:#d2452b; --tomato-ink:#ffffff;
+  --saffron:#e9a91c; --saffron-soft:#fbeecb; --paper:#fffbe9; --paper-line:#e9dfb8; --tile:rgba(255,255,255,.07);
+  --display:"Bricolage Grotesque",system-ui,sans-serif; --body:"Inter",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace; --hand:"Caveat","Segoe Print",cursive;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121611; --counter:#181e16; --surface:#1d231b; --fg:#e8eee1; --muted:#a2ad98; --line:#323b2c;
+  --basil:#163521; --basil-2:#1f4a2c; --basil-ink:#e8f3df; --tomato:#ee6a4f; --tomato-ink:#1a0d09;
+  --saffron:#f2b93a; --saffron-soft:#3b3115; --paper:#24291f; --paper-line:#3a4030; --tile:rgba(255,255,255,.05); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121611; --counter:#181e16; --surface:#1d231b; --fg:#e8eee1; --muted:#a2ad98; --line:#323b2c;
+  --basil:#163521; --basil-2:#1f4a2c; --basil-ink:#e8f3df; --tomato:#ee6a4f; --tomato-ink:#1a0d09;
+  --saffron:#f2b93a; --saffron-soft:#3b3115; --paper:#24291f; --paper-line:#3a4030; --tile:rgba(255,255,255,.05); color-scheme:dark}
+*{box-sizing:border-box}
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font-size:14px;-webkit-text-size-adjust:100%}
+img{max-width:100%}
+[hidden]{display:none!important}
+html,body{background:var(--bg)}
+body{color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.pad{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.inner{max-width:1160px;margin:0 auto}
+
+/* Hero: Wandfliesen */
+.hero{margin-top:calc(-1 * env(safe-area-inset-top,0px));padding-top:calc(env(safe-area-inset-top,0px) + 40px);padding-bottom:84px;
+  background-color:var(--basil);color:var(--basil-ink);
+  background-image:linear-gradient(var(--tile) 2px,transparent 2px),linear-gradient(90deg,var(--tile) 2px,transparent 2px);
+  background-size:46px 46px;background-position:-1px -1px;position:relative;overflow:hidden}
+.hero .inner{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:24px;align-items:center}
+.kicker{font-family:var(--hand);font-size:1.6rem;color:var(--saffron);line-height:1;transform:rotate(-2deg);display:inline-block}
+.hero h1{font-family:var(--display);font-weight:800;font-size:clamp(1.7rem,4vw,2.6rem);line-height:1.05;margin:6px 0 12px;letter-spacing:-.03em;text-wrap:balance}
+.hero h1 em{font-style:normal;color:var(--saffron)}
+.hero p{margin:0;max-width:46ch;opacity:.88;font-size:16px}
+.hero svg{width:100%;max-width:560px;height:auto;justify-self:end}
+@media (max-width:760px){.hero .inner{grid-template-columns:minmax(0,1fr)}.hero svg{display:none}}
+
+/* Arbeitsfläche */
+.board{margin-top:-52px;padding-bottom:56px;position:relative;z-index:1}
+.grid{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.3fr);gap:24px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Einkaufszettel */
+.note{background:var(--paper);border-radius:4px 4px 12px 12px;padding:22px 20px 20px;box-shadow:0 1px 0 var(--paper-line),0 14px 30px -18px rgba(0,0,0,.45);
+  display:flex;flex-direction:column;gap:14px;position:relative;min-width:0;
+  }
+.note::before{content:"";position:absolute;top:-10px;left:50%;width:90px;height:22px;transform:translateX(-50%) rotate(-2deg);background:var(--saffron);opacity:.75;border-radius:2px}
+.note h2{font-family:var(--hand);font-size:2rem;font-weight:600;margin:0;line-height:1.1}
+.rows{display:flex;flex-direction:column;gap:6px}
+.row{display:grid;grid-template-columns:12px minmax(0,1fr) 72px 86px 30px;gap:6px;align-items:center}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--tomato)}
+.row:nth-child(3n+2) .dot{background:var(--basil-2)} .row:nth-child(3n) .dot{background:var(--saffron)}
+input,select,button{font:inherit;color:inherit}
+input,select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;width:100%}
+input.amt{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--saffron);outline-offset:1px}
+.x{background:none;border:0;border-radius:8px;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:4px}
+.x:hover{color:var(--tomato)}
+.ghost{background:none;border:1.5px dashed var(--line);border-radius:8px;padding:8px;cursor:pointer;color:var(--muted);font-weight:500}
+.ghost:hover{color:var(--fg);border-color:var(--muted)}
+.opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.opts label{display:flex;flex-direction:column;gap:3px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.check input{width:auto;accent-color:var(--basil-2)}
+@media (max-width:480px){.opts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.row{grid-template-columns:10px minmax(0,1fr) 60px 74px 26px}}
+.go{background:var(--basil);color:var(--basil-ink);border:0;border-radius:999px;padding:14px 22px;font-family:var(--display);font-weight:700;font-size:18px;cursor:pointer;
+  box-shadow:0 6px 0 -2px color-mix(in srgb,var(--basil) 55%,#000);transition:transform .12s}
+.go:hover{transform:translateY(-1px)} .go:active{transform:translateY(2px)}
+.go:disabled{opacity:.6;cursor:progress;transform:none}
+.hint{font-size:13px;color:var(--muted);margin:0}
+
+/* Rezeptkarte */
+.card{background:var(--paper);border-radius:4px 4px 12px 12px;min-width:0;position:relative;box-shadow:0 1px 0 var(--paper-line),0 14px 30px -18px rgba(0,0,0,.45);
+  }
+.card::before{content:"";position:absolute;top:-10px;left:50%;width:90px;height:22px;transform:translateX(-50%) rotate(2deg);background:var(--saffron);opacity:.75;border-radius:2px}
+.body{padding:26px 24px;display:flex;flex-direction:column;gap:18px}
+.eyebrow{font-family:var(--hand);font-size:1.4rem;color:var(--tomato);line-height:1}
+.body h3{font-family:var(--display);font-weight:800;font-size:clamp(1.7rem,3.6vw,2.4rem);line-height:1.02;margin:2px 0 0;letter-spacing:-.02em;text-wrap:balance}
+.desc{margin:0;color:var(--muted);max-width:62ch}
+.meta{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--saffron-soft);border-radius:999px;padding:4px 11px;font-size:13px;font-weight:600}
+.cols{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr);gap:24px}
+@media (max-width:620px){.cols{grid-template-columns:minmax(0,1fr)}}
+h4{font-family:var(--display);font-weight:700;font-size:1.05rem;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em}
+.ing{list-style:none;margin:0;padding:0}
+.ing li{display:grid;grid-template-columns:74px minmax(0,1fr);gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);align-items:baseline}
+.ing .q{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--basil-2);font-size:14px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .ing .q{color:var(--saffron)}}
+:root[data-theme="dark"] .ing .q{color:var(--saffron)}
+.ing small{color:var(--muted);font-size:12px;margin-left:4px}
+.steps{margin:0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:12px}
+.steps li{counter-increment:s;display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px}
+.steps li::before{content:counter(s);font-family:var(--display);font-weight:800;font-size:14px;width:28px;height:28px;border-radius:50%;background:var(--basil-2);color:#fff;display:grid;place-items:center}
+.aside{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.aside div{background:var(--counter);border-radius:12px;padding:12px 14px;font-size:14px}
+.aside b{display:block;font-family:var(--hand);font-size:1.35rem;font-weight:600;color:var(--tomato);line-height:1.1;margin-bottom:2px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.sec{background:var(--counter);border:0;border-radius:999px;padding:10px 16px;cursor:pointer;font-weight:600}
+.sec:hover{filter:brightness(.96)}
+.save{background:var(--basil);color:var(--basil-ink)}
+.pdfnote{font-size:13px;color:var(--muted);flex-basis:100%;margin:0}
+.pdfnote:empty{display:none}
+.sec:disabled{cursor:default;filter:none;opacity:.85}
+.state{padding:28px 22px 30px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center;color:var(--muted)}
+.state b{font-family:var(--display);font-size:1.3rem;color:var(--fg)}
+.err{color:var(--tomato)}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--saffron);border-right-color:transparent;animation:r .8s linear infinite;display:inline-block}
+@keyframes r{to{transform:rotate(360deg)}}
+/* Rezeptfoto */
+.photo{margin:0;aspect-ratio:3/2;border-radius:8px;overflow:hidden;background:var(--counter);border:1px solid var(--paper-line);display:grid;place-items:center;position:relative}
+.photo img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .5s}
+.photo img.on{opacity:1}
+.photo .wait{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.9rem;padding:12px;text-align:center}
+.photo figcaption{position:absolute;right:8px;bottom:6px;font-size:.7rem;color:#fff;background:rgba(0,0,0,.45);padding:2px 7px;border-radius:99px}
+.photo.fail{aspect-ratio:auto;padding:10px 0}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}.go{transition:none}.photo img{transition:none}}
+.install{margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.installbtn{background:var(--saffron);color:#1c231a;border:0;border-radius:999px;padding:9px 16px;font-weight:600;cursor:pointer}
+.installtip{font-size:14px;opacity:.9;margin:0}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+@media (max-width:480px){
+  input,select{font-size:16px;padding:7px 6px}
+  .row{grid-template-columns:8px minmax(0,1fr) 58px 84px 24px;gap:5px}
+  .x{padding:2px}
+  input.amt::placeholder{font-size:12px}
+}
+.codebox{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%;max-width:340px}
+.codebox input{flex:1 1 160px}
+</style>
+</head>
+<body>
+
+<section class="hero pad">
+  <div class="inner">
+    <div>
+      <span class="kicker">Kühlschrank auf, Ideen raus</span>
+      <h1>Koch mit dem, was <em>noch da</em> ist.</h1>
+      <p>Schreib auf, welche Zutaten du in welcher Menge hast. Restekoch erfindet daraus ein Gericht, das genau diese Mengen nutzt, mit Schritt-für-Schritt-Anleitung.</p>
+      <div class="install" id="install" hidden>
+        <button type="button" class="installbtn" id="installbtn" hidden>App installieren</button>
+        <p class="installtip" id="installtip" hidden></p>
+      </div>
+    </div>
+    <svg viewBox="-190 0 550 270" aria-hidden="true">
+      <defs>
+        <radialGradient id="hglow" cx="70%" cy="50%" r="55%"><stop offset="0" stop-color="#fff1b8" stop-opacity=".5"/><stop offset="1" stop-color="#fff1b8" stop-opacity="0"/></radialGradient>
+        <linearGradient id="hin" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fffdf0"/><stop offset="1" stop-color="#f6e9b9"/></linearGradient>
+        <linearGradient id="hdoor" x1="0" x2="1"><stop offset="0" stop-color="#c3cbb9"/><stop offset="1" stop-color="#e9ede2"/></linearGradient>
+        <linearGradient id="hbody" x1="0" x2="1"><stop offset="0" stop-color="#f1f3ec"/><stop offset="1" stop-color="#d8ddd0"/></linearGradient>
+        <linearGradient id="hbeam" x1="1" x2="0"><stop offset="0" stop-color="#fff1b8" stop-opacity=".45"/><stop offset="1" stop-color="#fff1b8" stop-opacity="0"/></linearGradient>
+        <linearGradient id="hcoat" x1="0" x2="1"><stop offset="0" stop-color="#e9e7de"/><stop offset=".6" stop-color="#ffffff"/><stop offset="1" stop-color="#fff8dc"/></linearGradient>
+        <radialGradient id="hcurd" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#eadbae"/></radialGradient>
+      <linearGradient id="hcuc" x1="0" x2="1"><stop offset="0" stop-color="#25561f"/><stop offset=".45" stop-color="#4f9436"/><stop offset="1" stop-color="#2a5f23"/></linearGradient>
+      <linearGradient id="hleaf" x1="0" x2="0" y1="1" y2="0"><stop offset="0" stop-color="#3f7d34"/><stop offset="1" stop-color="#7cbd5e"/></linearGradient>
+      <linearGradient id="hside" x1="0" x2="1"><stop offset="0" stop-color="#a9b29c"/><stop offset="1" stop-color="#848d79"/></linearGradient>
+      </defs>
+      <rect x="-190" width="550" height="270" fill="url(#hglow)"/>
+      <!-- Boden + Lichtkegel -->
+      <ellipse cx="200" cy="256" rx="148" ry="9" fill="#000" opacity=".22"/>
+      <polygon points="205,241 300,241 330,270 170,270" fill="#fff1b8" opacity=".28"/>
+      <!-- Seitenwand: Kühlschrank leicht zum Koch gedreht -->
+      <path d="M300 18 L334 30 L334 242 L300 254 Z" fill="url(#hside)"/>
+      <path d="M300 18 L334 30 L334 36 L300 25 Z" fill="#000" opacity=".12"/>
+      <g transform="translate(194 0) scale(.88 1) translate(-194 0)">
+      <!-- Kühlschrank-Korpus -->
+      <rect x="194" y="16" width="134" height="238" rx="14" fill="url(#hbody)"/>
+      <rect x="204" y="26" width="114" height="218" rx="8" fill="#b9c1ae"/>
+      <rect x="207" y="29" width="108" height="212" rx="6" fill="url(#hin)"/>
+      <rect x="236" y="31" width="50" height="4" rx="2" fill="#ffffff"/>
+      <!-- Böden aus Glas -->
+      <g fill="#d6dccb"><rect x="207" y="86" width="108" height="4"/><rect x="207" y="140" width="108" height="4"/><rect x="207" y="192" width="108" height="4"/></g>
+      <g fill="#ffffff" opacity=".7"><rect x="207" y="86" width="108" height="1.5"/><rect x="207" y="140" width="108" height="1.5"/><rect x="207" y="192" width="108" height="1.5"/></g>
+      <!-- oben: Milch, Flasche, Glas -->
+      <path d="M216 52 h20 v34 h-20 z" fill="#ffffff"/><path d="M216 52 l10 -9 l10 9 z" fill="#e8ecf2"/><rect x="216" y="62" width="20" height="10" fill="#4a90c8"/>
+      <path d="M246 86 v-26 q0 -6 4 -9 v-8 h6 v8 q4 3 4 9 v26 z" fill="#2f7a45"/><rect x="246" y="64" width="14" height="10" fill="#f3e6b5"/><rect x="249" y="56" width="2" height="26" fill="#ffffff" opacity=".35"/>
+      <rect x="270" y="58" width="34" height="28" rx="6" fill="#c9442c"/><rect x="268" y="52" width="38" height="8" rx="3" fill="#7d2a1a"/><rect x="274" y="62" width="4" height="20" rx="2" fill="#ffffff" opacity=".3"/>
+      <!-- Mitte: Käse, Tomaten -->
+      <path d="M214 140 L262 140 L262 112 Z" fill="#f4c542"/><path d="M262 112 L262 140 L268 136 L268 110 Z" fill="#d9a92a"/>
+      <circle cx="240" cy="133" r="3.5" fill="#dcad2e"/><circle cx="253" cy="126" r="2.5" fill="#dcad2e"/>
+      <circle cx="285" cy="127" r="13" fill="#d8432a"/><circle cx="305" cy="130" r="10" fill="#e8573a"/>
+      <ellipse cx="281" cy="122" rx="4" ry="2.5" fill="#ffffff" opacity=".45"/><ellipse cx="302" cy="126" rx="3" ry="2" fill="#ffffff" opacity=".45"/>
+      <path d="M280 115 l5 3 l5 -3 M300 121 l4 2 l4 -2" stroke="#2f7a45" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <!-- unten: Eier, Karotten -->
+      <rect x="213" y="182" width="50" height="10" rx="3" fill="#d9c7a0"/>
+      <ellipse cx="222" cy="179" rx="6.5" ry="8.5" fill="#fffaf0"/><ellipse cx="238" cy="179" rx="6.5" ry="8.5" fill="#f3e2c3"/><ellipse cx="254" cy="179" rx="6.5" ry="8.5" fill="#fffaf0"/>
+      <path d="M272 180 Q290 172 308 176 L272 186 Z" fill="#ef8a22"/><path d="M272 188 Q288 182 306 186 L272 192 Z" fill="#f59a35"/>
+      <path d="M308 176 l7 -6 M308 176 l8 1" stroke="#2f7a45" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- Gemüsefach -->
+      <rect x="211" y="200" width="100" height="36" rx="6" fill="#dbe6d2" opacity=".85"/>
+      <circle cx="230" cy="216" r="11" fill="#5c9e43"/><path d="M222 212 q8 -6 16 0 M224 219 q6 -4 12 0" stroke="#8ccf6c" stroke-width="2" fill="none"/>
+      <ellipse cx="270" cy="220" rx="22" ry="7" fill="#3f7d34"/><ellipse cx="266" cy="217" rx="12" ry="2" fill="#7bb85f" opacity=".7"/>
+      <circle cx="300" cy="218" r="8" fill="#9a4fa0"/>
+      <rect x="211" y="226" width="100" height="10" rx="4" fill="#ffffff" opacity=".35"/>
+      </g>
+      <!-- Tür: zum Betrachter aufgeschwungen, freie Kante näher und damit größer -->
+      <polygon points="194,18 138,6 138,266 194,254" fill="url(#hdoor)"/>
+      <polygon points="138,6 132,9 132,263 138,266" fill="#a7b09b"/>
+      <polygon points="188,27 145,18 145,256 188,246" fill="none" stroke="#b5bda9" stroke-width="1.5"/>
+      <g fill="#cdd4c3"><polygon points="188,104 145,101 145,108 188,110"/><polygon points="188,176 145,180 145,187 188,182"/></g>
+      <rect x="166" y="72" width="9" height="32" rx="3" fill="#f8f6ee"/><rect x="152" y="64" width="10" height="38" rx="3" fill="#2f7a45"/><rect x="152" y="73" width="10" height="8" fill="#f3e6b5"/>
+      <rect x="166" y="150" width="10" height="27" rx="3" fill="#e9a91c"/><rect x="151" y="142" width="10" height="36" rx="3" fill="#c9442c"/>
+      <!-- Herd -->
+      <ellipse cx="-138" cy="257" rx="48" ry="5" fill="#000" opacity=".2"/>
+      <rect x="-182" y="132" width="88" height="20" rx="4" fill="#cfd5c6"/>
+      <g fill="#5d6657"><circle cx="-166" cy="142" r="4.5"/><circle cx="-150" cy="142" r="4.5"/><circle cx="-126" cy="142" r="4.5"/><circle cx="-110" cy="142" r="4.5"/></g>
+      <g fill="#ffffff" opacity=".6"><rect x="-167" y="138" width="2" height="4" rx="1"/><rect x="-151" y="138" width="2" height="4" rx="1"/><rect x="-127" y="138" width="2" height="4" rx="1"/><rect x="-111" y="138" width="2" height="4" rx="1"/></g>
+      <rect x="-184" y="150" width="92" height="106" rx="6" fill="url(#hbody)"/>
+      <rect x="-186" y="148" width="96" height="7" rx="3" fill="#3a3f38"/>
+      <rect x="-176" y="166" width="76" height="6" rx="3" fill="#9aa48e"/>
+      <rect x="-174" y="178" width="72" height="56" rx="6" fill="#3a3f38"/>
+      <rect x="-168" y="184" width="60" height="44" rx="4" fill="#4a3a2a"/>
+      <rect x="-168" y="184" width="60" height="44" rx="4" fill="#f2b93a" opacity=".35"/>
+      <path d="M-162 192 h22" stroke="#ffffff" stroke-width="2" opacity=".35" stroke-linecap="round"/>
+      <rect x="-178" y="240" width="80" height="10" rx="3" fill="#c3cab8"/>
+      <!-- Topf mit Dampf -->
+      <rect x="-172" y="122" width="40" height="26" rx="5" fill="#c9442c"/>
+      <rect x="-176" y="118" width="48" height="7" rx="3.5" fill="#8f2f1d"/>
+      <rect x="-156" y="112" width="8" height="7" rx="3" fill="#2a2e29"/>
+      <rect x="-180" y="127" width="8" height="5" rx="2.5" fill="#8f2f1d"/><rect x="-132" y="127" width="8" height="5" rx="2.5" fill="#8f2f1d"/>
+      <rect x="-166" y="128" width="4" height="16" rx="2" fill="#ffffff" opacity=".25"/>
+      <path d="M-160 106 q-6 -8 0 -16 q6 -8 0 -16 M-146 106 q-6 -8 0 -16 q6 -8 0 -16" stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round" opacity=".5"/>
+      <rect x="-118" y="124" width="22" height="24" rx="4" fill="#3a3f38"/><rect x="-100" y="132" width="14" height="4" rx="2" fill="#3a3f38"/>
+      <!-- Küchentisch -->
+      <ellipse cx="-36" cy="257" rx="54" ry="5" fill="#000" opacity=".2"/>
+      <rect x="-82" y="190" width="8" height="66" rx="2" fill="#8a5a34"/><rect x="2" y="190" width="8" height="66" rx="2" fill="#8a5a34"/>
+      <rect x="-70" y="192" width="6" height="58" rx="2" fill="#6e4628"/><rect x="-8" y="192" width="6" height="58" rx="2" fill="#6e4628"/>
+      <rect x="-90" y="180" width="108" height="12" rx="3" fill="#b07a48"/>
+      <rect x="-90" y="180" width="108" height="3" rx="1.5" fill="#d29a62"/>
+      <path d="M-80 186 h30 M-40 188 h44" stroke="#8a5a34" stroke-width="1" opacity=".6"/>
+      <!-- Obstkorb -->
+      <ellipse cx="-36" cy="180" rx="34" ry="3" fill="#000" opacity=".18"/>
+      <circle cx="-54" cy="150" r="10" fill="#d8432a"/><ellipse cx="-57" cy="146" rx="3" ry="2" fill="#ffffff" opacity=".4"/>
+      <path d="M-54 140 q1 -5 4 -6" stroke="#5a3a20" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <circle cx="-18" cy="150" r="10" fill="#f08a24"/><circle cx="-21" cy="146" r="2.5" fill="#ffffff" opacity=".35"/>
+      <path d="M-62 150 Q-46 124 -22 136 Q-40 132 -58 150 Z" fill="#f2c94c"/><path d="M-62 150 Q-46 128 -24 137" stroke="#d9ab2f" stroke-width="1.2" fill="none"/>
+      <g fill="#7b4a9c"><circle cx="-36" cy="146" r="4.5"/><circle cx="-30" cy="150" r="4.5"/><circle cx="-42" cy="150" r="4.5"/><circle cx="-36" cy="153" r="4.5"/><circle cx="-29" cy="157" r="4.5"/><circle cx="-43" cy="157" r="4.5"/></g>
+      <circle cx="-36" cy="140" r="1.5" fill="#3f7d34"/>
+      <circle cx="-62" cy="160" r="9" fill="#7fb34a"/><circle cx="-10" cy="160" r="9" fill="#e8573a"/>
+      <path d="M-68 158 L-4 158 L-12 180 L-60 180 Z" fill="#c8924f"/>
+      <g stroke="#9c6a34" stroke-width="1.4" fill="none"><path d="M-66 164 L-6 164 M-64 170 L-8 170 M-62 176 L-10 176"/><path d="M-56 158 l3 22 M-46 158 l2 22 M-36 158 v22 M-26 158 l-2 22 M-16 158 l-3 22"/></g>
+      <rect x="-70" y="155" width="68" height="6" rx="3" fill="#b57e3e"/>
+      <!-- Koch, frontal -->
+      <ellipse cx="96" cy="256" rx="42" ry="6" fill="#000" opacity=".2"/>
+      <rect x="79" y="200" width="15" height="50" rx="4" fill="#2a2e29"/><rect x="98" y="200" width="15" height="50" rx="4" fill="#323731"/>
+      <ellipse cx="85" cy="251" rx="11" ry="5" fill="#161816"/><ellipse cx="107" cy="251" rx="11" ry="5" fill="#161816"/>
+      <path d="M70 138 Q46 182 26 166" stroke="#d9d6c8" stroke-width="18" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M70 138 Q46 182 26 166" stroke="#f4f3ee" stroke-width="15" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M64 132 Q96 118 128 132 L132 208 Q96 217 60 208 Z" fill="url(#hcoat)" stroke="#d9d6c8" stroke-width="1.5"/>
+      <path d="M96 128 L108 208" stroke="#dedbd0" stroke-width="2"/>
+      <g fill="#c4bfae"><circle cx="88" cy="152" r="2.6"/><circle cx="106" cy="152" r="2.6"/><circle cx="88" cy="172" r="2.6"/><circle cx="106" cy="172" r="2.6"/><circle cx="88" cy="192" r="2.6"/><circle cx="106" cy="192" r="2.6"/></g>
+      <path d="M82 123 Q96 130 110 123 L96 144 Z" fill="#d2452b"/><circle cx="96" cy="127" r="4" fill="#b23a23"/>
+      <rect x="89" y="108" width="14" height="16" rx="4" fill="#e2ae88"/>
+      <ellipse cx="74" cy="95" rx="5" ry="6.5" fill="#e6b28d"/><ellipse cx="118" cy="95" rx="5" ry="6.5" fill="#e6b28d"/>
+      <circle cx="96" cy="92" r="22" fill="#f2c9a6"/>
+      <path d="M83 82 q5 -3 10 -1 M99 81 q5 -2 10 1" stroke="#7a5236" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <ellipse cx="88" cy="90" rx="2.8" ry="3.4" fill="#2a2e29"/><ellipse cx="104" cy="90" rx="2.8" ry="3.4" fill="#2a2e29"/>
+      <circle cx="89" cy="89" r=".9" fill="#ffffff"/><circle cx="105" cy="89" r=".9" fill="#ffffff"/>
+      <ellipse cx="96" cy="98" rx="4.5" ry="3.8" fill="#e6ad88"/>
+      <circle cx="81" cy="100" r="4.5" fill="#f19b84" opacity=".45"/><circle cx="111" cy="100" r="4.5" fill="#f19b84" opacity=".45"/>
+      <!-- Brille -->
+      <g fill="none" stroke="#2a2e29" stroke-width="1.8">
+        <circle cx="88" cy="90" r="6.8" fill="#ffffff" fill-opacity=".18"/><circle cx="104" cy="90" r="6.8" fill="#ffffff" fill-opacity=".18"/>
+        <path d="M94.8 89.5 q1.2 -1.6 2.4 0" stroke-linecap="round"/>
+        <path d="M81.2 89 L75 87.5 M110.8 89 L117 87.5" stroke-linecap="round"/>
+      </g>
+      <path d="M84 87 q2 -2 4 -2 M100 87 q2 -2 4 -2" stroke="#ffffff" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"/>
+      <path d="M89 105 q7 7 14 0" stroke="#a24f3a" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <g transform="translate(96 68) scale(.66) translate(-96 -63)">
+      <path d="M76 63 C58 54 66 30 84 36 C86 18 112 16 116 34 C134 30 138 56 116 63 Q96 58 76 63 Z" fill="#ffffff" stroke="#d9d6c8" stroke-width="1.8"/>
+      <path d="M87 60 q-1 -9 2 -16 M97 59 q0 -10 1 -17 M107 60 q1 -8 -1 -14" stroke="#e4e1d6" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </g>
+      <path d="M77 77 q19 -5 38 0 v-10 q-19 -4 -38 0 z" fill="#f1f0ea" stroke="#d9d6c8" stroke-width="1.2"/>
+      <path d="M124 138 Q134 152 138 140" stroke="#d9d6c8" stroke-width="18" fill="none" stroke-linecap="round"/>
+      <path d="M124 138 Q134 152 138 140" stroke="#fffcf0" stroke-width="15" fill="none" stroke-linecap="round"/>
+      <!-- rechte Hand greift die Türkante -->
+      <ellipse cx="139" cy="139" rx="7" ry="8" fill="#f2c9a6" stroke="#c98c68" stroke-width=".9"/>
+      <g fill="#f2c9a6" stroke="#c98c68" stroke-width=".9">
+        <rect x="136" y="129" width="12" height="5" rx="2.5"/><rect x="137" y="134.5" width="12" height="5" rx="2.5"/>
+        <rect x="137" y="140" width="11.5" height="5" rx="2.5"/><rect x="136" y="145.5" width="10" height="4.6" rx="2.3"/>
+      </g>
+      <rect x="131" y="127" width="5" height="11" rx="2.5" fill="#f2c9a6" stroke="#c98c68" stroke-width=".9" transform="rotate(-25 133 132)"/>
+      <!-- Gurke in der Hand -->
+      <g transform="rotate(-18 38 160)">
+        <rect x="29" y="92" width="18" height="100" rx="9" fill="url(#hcuc)"/>
+        <path d="M34 100 Q32 142 34 186 M40 97 Q41 142 40 189 M44 102 Q45 142 43 184" stroke="#8cc46a" stroke-width="1.2" fill="none" opacity=".6"/>
+        <g fill="#b9e09a"><circle cx="33" cy="108" r="1.1"/><circle cx="42" cy="114" r="1.1"/><circle cx="36" cy="122" r="1.1"/><circle cx="44" cy="130" r="1.1"/><circle cx="33" cy="136" r="1.1"/><circle cx="41" cy="144" r="1.1"/><circle cx="35" cy="176" r="1.1"/><circle cx="43" cy="180" r="1.1"/><circle cx="37" cy="186" r="1.1"/><circle cx="44" cy="120" r="1.1"/><circle cx="32" cy="128" r="1.1"/></g>
+        <rect x="32" y="96" width="3" height="40" rx="1.5" fill="#ffffff" opacity=".25"/>
+        <path d="M36 92 q2 -7 6 -9" stroke="#5a7a2a" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <ellipse cx="38" cy="190" rx="6" ry="2.5" fill="#c9df7a" opacity=".8"/>
+        <!-- Faust umgreift die Gurke -->
+        <path d="M18 150 q-4 10 0 20 l12 2 l0 -24 z" fill="#f4f3ee" stroke="#d9d6c8" stroke-width="1.2"/>
+        <path d="M26 147 q-6 0 -6 6 v12 q0 7 7 8 h6 v-26 z" fill="#e2ab85" stroke="#c98c68" stroke-width=".9"/>
+        <g stroke="#c98c68" stroke-width=".9">
+          <path d="M28 150.5 h14 a3 3 0 0 1 0 6 h-14 z" fill="#f2c9a6"/>
+          <path d="M28 156.5 h15 a3 3 0 0 1 0 6 h-15 z" fill="#f2c9a6"/>
+          <path d="M28 162.5 h14.5 a3 3 0 0 1 0 6 h-14.5 z" fill="#f2c9a6"/>
+          <path d="M28 168.5 h12 a2.6 2.6 0 0 1 0 5.2 h-12 z" fill="#f2c9a6"/>
+        </g>
+        <g fill="none" stroke="#c98c68" stroke-width=".8" opacity=".6"><path d="M40 152 v3 M41 158 v3 M40.5 164 v3 M38 170 v2.4"/></g>
+        <path d="M24 149 q8 -5 18 -1.5 q3 1.6 1 3.6 q-8 -1 -16 2.5 z" fill="#f2c9a6" stroke="#c98c68" stroke-width=".9"/>
+      </g>
+      <!-- Glanz -->
+      <g fill="#fff1b8"><path d="M24 60 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 l7 -3 z"/><path d="M344 60 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z"/></g>
+    </svg>
+  </div>
+</section>
+
+<main class="board pad">
+  <div class="inner grid">
+    <form class="note" id="form" novalidate>
+      <h2>Was ist im Vorrat?</h2>
+      <div class="rows" id="rows"></div>
+      <button type="button" class="ghost" id="add">+ Zutat hinzufügen</button>
+      <div class="opts">
+        <label>Portionen<input id="servings" type="number" min="1" max="12" value="2"></label>
+        <label>Zeit<select id="time"><option value="20">bis 20 Min</option><option value="40" selected>bis 40 Min</option><option value="90">bis 90 Min</option></select></label>
+        <label>Ernährung<select id="diet"><option>alles</option><option>vegetarisch</option><option>vegan</option></select></label>
+      </div>
+      <label class="check"><input type="checkbox" id="pantry" checked> Grundvorrat da (Salz, Pfeffer, Öl, Wasser)</label>
+      <button class="go" id="go" type="submit">Gericht erfinden</button>
+      <p class="hint" id="avail">Die Rezepte erstellt die KI Claude von Anthropic. Bitte prüfe Mengen und Garzeiten vor dem Kochen.</p>
+    </form>
+
+    <article class="card" id="out" aria-live="polite"></article>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</body>
+</html>
+<script>
+const UNITS=["g","kg","ml","l","Stück","EL","TL","Bund","Dose","Prise"];
+const $=s=>document.querySelector(s);
+const rows=$("#rows");
+let uid=0;
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=String(text);return e}
+
+function addRow(n="",a="",u="g"){
+  const id=++uid;const r=el("div","row");
+  const name=Object.assign(el("input"),{id:"n"+id,placeholder:"z. B. Paprika",value:n});name.setAttribute("aria-label","Zutat");
+  const amt=Object.assign(el("input","amt"),{id:"a"+id,type:"number",min:"0",step:"any",value:a,placeholder:"Menge"});amt.setAttribute("aria-label","Menge");
+  const unit=el("select");unit.id="u"+id;unit.setAttribute("aria-label","Einheit");
+  UNITS.forEach(x=>{const o=el("option",null,x);if(x===u)o.selected=true;unit.append(o)});
+  const del=el("button","x","×");del.type="button";del.setAttribute("aria-label","Zutat entfernen");
+  del.onclick=()=>{r.remove();if(!rows.children.length)addRow()};
+  r.append(el("span","dot"),name,amt,unit,del);rows.append(r);return name;
+}
+addRow();
+$("#add").onclick=()=>addRow().focus();
+const readInput=()=>[...rows.children].map(r=>{const [n,a]=r.querySelectorAll("input");const u=r.querySelector("select");return {name:n.value.trim(),amount:a.value,unit:u.value}}).filter(x=>x.name);
+
+let ctl=null;
+
+/* ---------- Rezept ---------- */
+function state(title,sub,{spin=false,err=false,stop=false}={}){
+  const out=$("#out");out.replaceChildren();
+  const s=el("div","state");if(spin)s.append(el("span","spin"));s.append(el("b",null,title),el("span",err?"err":null,sub));
+  if(stop){const b=el("button","sec","Abbrechen");b.type="button";b.onclick=()=>ctl?.abort();s.append(b)}
+  out.append(s);
+}
+
+function render(r,example=false){
+  const out=$("#out");out.replaceChildren();
+  const b=el("div","body");
+  const head=el("div");head.append(el("div","eyebrow",example?"Beispiel":"Heute gibt's"),el("h3",null,r.title||"Dein Gericht"));b.append(head);
+  if(r.description)b.append(el("p","desc",r.description));
+  const m=el("div","meta");
+  if(r.servings)m.append(el("span","chip",`${r.servings} Portionen`));
+  if(r.minutes)m.append(el("span","chip",`${r.minutes} Min`));
+  if(r.difficulty)m.append(el("span","chip",r.difficulty));
+  b.append(m);
+  const cols=el("div","cols");
+  const c1=el("div");c1.append(el("h4",null,"Zutaten"));const ul=el("ul","ing");
+  (Array.isArray(r.ingredients)?r.ingredients:[]).forEach(i=>{const li=el("li");const n=el("span",null,i.name);if(i.pantry)n.append(el("small",null,"Grundvorrat"));
+    li.append(el("span","q",[i.amount,i.unit].filter(Boolean).join(" ")),n);ul.append(li)});
+  c1.append(ul);
+  const c2=el("div");c2.append(el("h4",null,"Zubereitung"));const ol=el("ol","steps");
+  (Array.isArray(r.steps)?r.steps:[]).forEach(s=>ol.append(el("li",null,s)));c2.append(ol);
+  cols.append(c1,c2);b.append(cols);
+  const as=el("div","aside");
+  if(r.leftovers){const d=el("div");d.append(el("b",null,"Bleibt übrig"),document.createTextNode(String(r.leftovers)));as.append(d)}
+  if(r.tip){const d=el("div");d.append(el("b",null,"Tipp vom Koch"),document.createTextNode(String(r.tip)));as.append(d)}
+  if(as.children.length)b.append(as);
+  const btns=el("div","btns");
+  const pdf=el("button","sec","Als PDF speichern");pdf.type="button";
+  const pdfNote=el("p","pdfnote");pdfNote.setAttribute("role","status");
+  pdf.onclick=()=>exportPdf(r,pdf,pdfNote);
+  btns.append(pdf);
+  const again=el("button","sec","Anderes Gericht vorschlagen");again.type="button";again.onclick=()=>cook(true);btns.append(again);
+  btns.append(pdfNote);b.append(btns);
+  out.append(b);
+  if(!example&&photoEnabled)loadPhoto(r,b,head);
+}
+
+/* ---------- Rezeptfoto vom eigenen Bildgenerator ---------- */
+let photoEnabled=true,photoRun=0;
+async function loadPhoto(r,body,head){
+  const run=++photoRun;
+  const fig=el("figure","photo");
+  const wait=el("div","wait");wait.append(el("span","spin"),el("span",null,"Foto wird erzeugt …"));
+  fig.append(wait);head.after(fig);
+  try{
+    const res=await fetch("/api/image",{method:"POST",headers:{"content-type":"application/json","x-access-code":getCode()},
+      body:JSON.stringify({prompt:r.image_prompt||"",title:r.title||""})});
+    const data=await res.json().catch(()=>({}));
+    if(run!==photoRun)return; // inzwischen neues Rezept
+    if(data.disabled){photoEnabled=false;fig.remove();return}
+    if(!res.ok||!data.image)throw new Error(data.error||"Das Foto konnte nicht erstellt werden.");
+    const img=el("img");img.alt="KI-Foto: "+(r.title||"Gericht");img.decoding="async";
+    img.onload=()=>{wait.remove();img.classList.add("on")};
+    img.src=data.image;r.image=data.image;
+    fig.append(img,el("figcaption",null,"KI-generiert"));
+  }catch(e){
+    if(run!==photoRun)return;
+    fig.className="photo fail";wait.replaceChildren(el("span",null,(e?.message&&!/fetch|network/i.test(e.message))?e.message:"Foto gerade nicht verfügbar."));
+  }
+}
+
+/* ---------- Rezept vom Server holen ---------- */
+const CODE_KEY="restekoch.code";
+const getCode=()=>{try{return localStorage.getItem(CODE_KEY)||""}catch{return ""}};
+const setCode=v=>{try{localStorage.setItem(CODE_KEY,v)}catch{}};
+let lastFresh=false;
+
+function askCode(wrong){
+  state("Zugangscode nötig",wrong?"Der Code stimmt nicht. Bitte noch einmal eingeben.":"Diese App ist mit einem Code geschützt. Du bekommst ihn von der Person, die dir den Link geschickt hat.",{err:!!wrong});
+  const f=el("form","codebox");
+  const i=el("input");i.id="code";i.type="text";i.autocomplete="off";i.placeholder="Zugangscode";i.setAttribute("aria-label","Zugangscode");
+  const b=el("button","sec save","Weiter");b.type="submit";
+  f.append(i,b);f.onsubmit=e=>{e.preventDefault();if(i.value.trim()){setCode(i.value.trim());cook(lastFresh)}};
+  $("#out .state").append(f);i.focus();
+}
+
+async function cook(fresh){
+  lastFresh=fresh;
+  const items=readInput();
+  if(!items.length){state("Noch leer","Trag mindestens eine Zutat ein.",{err:true});return}
+  if(!navigator.onLine){state("Keine Verbindung","Für ein neues Rezept brauchst du Internet. Prüfe WLAN oder mobile Daten.",{err:true});return}
+  ctl?.abort();ctl=new AbortController();
+  const go=$("#go");go.disabled=true;state("Der Koch überlegt …","Das dauert meist 5–20 Sekunden.",{spin:true,stop:true});
+  try{
+    const res=await fetch("/api/recipe",{method:"POST",signal:ctl.signal,
+      headers:{"content-type":"application/json","x-access-code":getCode()},
+      body:JSON.stringify({items,servings:$("#servings").value,minutes:$("#time").value,diet:$("#diet").value,pantry:$("#pantry").checked,another:fresh})});
+    const data=await res.json().catch(()=>({}));
+    if(res.status===401){askCode(!!getCode());return}
+    if(!res.ok)throw new Error(data.error||"Das Rezept konnte gerade nicht erstellt werden.");
+    if(!data||!data.title)throw new Error("Die Antwort war unvollständig. Bitte versuch es noch einmal.");
+    render(data);
+    $("#out").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+  }catch(e){
+    if(e?.name==="AbortError")state("Abgebrochen","Passe die Zutaten an und versuch es erneut.");
+    else state("Hat nicht geklappt",e?.message&&!/fetch|network/i.test(e.message)?e.message:"Verbindungsproblem. Bitte versuch es noch einmal.",{err:true});
+  }finally{go.disabled=false}
+}
+
+/* Startzustand: leer */
+state("Noch kein Gericht","Trag deine Zutaten mit Menge ein und tippe auf „Gericht erfinden“.");
+
+
+/* ---------- PDF-Export ---------- */
+// Die PDF-Standardschrift kennt nur westeuropäische Zeichen: alles andere ersetzen.
+function pdfText(v){
+  return String(v??"")
+    .replace(/[‘’‚′]/g,"'").replace(/[“”„″]/g,'"')
+    .replace(/[–—−]/g,"-").replace(/…/g,"...").replace(/ | | /g," ")
+    .replace(/[•·]/g,"-").replace(/⅓/g,"1/3").replace(/⅔/g,"2/3").replace(/⅛/g,"1/8")
+    .replace(/[^\u0009\u000a -~ -ÿ]/g,"").trim();
+}
+function buildPdf(r){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+  const M=18,CW=W-2*M;
+  const GREEN=[36,80,47],TOMATO=[210,69,43],INK=[28,35,26],MUTED=[91,102,85],LINE=[212,218,203],SAFFRON=[233,169,28],PAPER=[255,251,233];
+  let y=0;
+  const footer=()=>{doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...MUTED);
+    doc.text("Restekoch - "+new Date().toLocaleDateString("de-DE"),M,H-10);
+    doc.text("Seite "+doc.internal.getNumberOfPages(),W-M,H-10,{align:"right"})};
+  const ensure=h=>{if(y+h>H-18){footer();doc.addPage();y=M}};
+
+  // Kopf
+  doc.setFillColor(...GREEN);doc.rect(0,0,W,52,"F");
+  doc.setFillColor(...SAFFRON);doc.rect(0,52,W,1.6,"F");
+  doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(...SAFFRON);
+  doc.text("RESTEKOCH  -  REZEPT",M,16,{charSpace:.4});
+  doc.setTextColor(255,255,255);doc.setFontSize(22);
+  const titleLines=doc.splitTextToSize(pdfText(r.title||"Dein Gericht"),CW).slice(0,2);
+  doc.text(titleLines,M,27);
+  const meta=[r.servings&&`${pdfText(r.servings)} Portionen`,r.minutes&&`${pdfText(r.minutes)} Minuten`,r.difficulty&&pdfText(r.difficulty)].filter(Boolean).join("   |   ");
+  if(meta){doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(232,243,223);doc.text(meta,M,27+titleLines.length*8.5+2)}
+  y=64;
+
+  // Foto (falls erzeugt)
+  if(r.image){
+    try{const p=doc.getImageProperties(r.image);const iw=CW,ih=Math.min(110,iw*p.height/p.width);
+      const w=ih*p.width/p.height;doc.addImage(r.image,"JPEG",M+(CW-w)/2,y-4,w,ih);y+=ih+4;
+    }catch(e){console.warn("Foto nicht ins PDF übernommen",e)}
+  }
+
+  // Beschreibung
+  if(r.description){doc.setFont("helvetica","italic");doc.setFontSize(11);doc.setTextColor(...MUTED);
+    const l=doc.splitTextToSize(pdfText(r.description),CW);ensure(l.length*5.2);doc.text(l,M,y);y+=l.length*5.2+6}
+
+  const heading=t=>{ensure(14);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(...TOMATO);
+    doc.text(t.toUpperCase(),M,y,{charSpace:.6});doc.setDrawColor(...LINE);doc.setLineWidth(.4);doc.line(M,y+2.2,W-M,y+2.2);y+=9};
+
+  // Zutaten
+  const ings=Array.isArray(r.ingredients)?r.ingredients:[];
+  if(ings.length){heading("Zutaten");
+    const QW=28;
+    ings.forEach(i=>{
+      const q=pdfText([i.amount,i.unit].filter(Boolean).join(" "));
+      const name=pdfText(i.name)+(i.pantry?"  (Grundvorrat)":"");
+      doc.setFont("helvetica","normal");doc.setFontSize(10.5);
+      const l=doc.splitTextToSize(name,CW-QW-6);const h=l.length*5+2.2;ensure(h);
+      doc.setFont("helvetica","bold");doc.setTextColor(...GREEN);if(q)doc.text(q,M+QW,y,{align:"right"});
+      doc.setFont("helvetica","normal");doc.setTextColor(...INK);doc.text(l,M+QW+6,y);
+      y+=h;doc.setDrawColor(...LINE);doc.setLineWidth(.2);doc.line(M,y-3.4,W-M,y-3.4);
+    });
+    y+=5;
+  }
+
+  // Zubereitung
+  const steps=Array.isArray(r.steps)?r.steps:[];
+  if(steps.length){heading("Zubereitung");
+    steps.forEach((st,i)=>{
+      doc.setFont("helvetica","normal");doc.setFontSize(10.5);
+      const l=doc.splitTextToSize(pdfText(st),CW-12);const h=Math.max(l.length*5,7)+3.5;ensure(h);
+      doc.setFillColor(...GREEN);doc.circle(M+3.4,y-1.4,3.4,"F");
+      doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(255,255,255);doc.text(String(i+1),M+3.4,y-.1,{align:"center"});
+      doc.setFont("helvetica","normal");doc.setFontSize(10.5);doc.setTextColor(...INK);doc.text(l,M+11,y);
+      y+=h;
+    });
+    y+=3;
+  }
+
+  // Hinweise
+  const box=(label,text)=>{
+    doc.setFont("helvetica","normal");doc.setFontSize(10.5);
+    const l=doc.splitTextToSize(pdfText(text),CW-10);const h=l.length*5+12;ensure(h+4);
+    doc.setFillColor(...PAPER);doc.setDrawColor(...LINE);doc.setLineWidth(.3);doc.roundedRect(M,y-4,CW,h,2.5,2.5,"FD");
+    doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.setTextColor(...TOMATO);doc.text(label,M+5,y+2);
+    doc.setFont("helvetica","normal");doc.setTextColor(...INK);doc.text(l,M+5,y+7.5);
+    y+=h+4;
+  };
+  if(r.leftovers)box("Bleibt übrig",r.leftovers);
+  if(r.tip)box("Tipp vom Koch",r.tip);
+
+  footer();
+  return doc.output("blob");
+}
+async function exportPdf(r,btn,note){
+  note.textContent="";
+  if(!window.jspdf?.jsPDF){note.textContent="Das PDF-Modul konnte nicht geladen werden. Prüfe die Internetverbindung und versuch es noch einmal.";return}
+  let blob;
+  try{blob=buildPdf(r)}catch(e){console.error(e);note.textContent="Das PDF konnte nicht erstellt werden.";return}
+  const name=(pdfText(r.title||"Rezept").replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ").trim().slice(0,80)||"Rezept")+".pdf";
+  const file=new File([blob],name,{type:"application/pdf"});
+  const touch=matchMedia("(pointer: coarse)").matches;
+  if(touch&&navigator.canShare?.({files:[file]})){
+    try{await navigator.share({files:[file],title:r.title||"Rezept"});return}
+    catch(e){if(e?.name==="AbortError")return}
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=name;document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  note.textContent="PDF wird heruntergeladen.";
+}
+
+$("#form").addEventListener("submit",e=>{e.preventDefault();cook(false)});
+/* ---------- Als App installieren ---------- */
+const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+let installEvt=null;
+if(!standalone){
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;$("#install").hidden=false;$("#installbtn").hidden=false;$("#installtip").hidden=true});
+  $("#installbtn").onclick=async()=>{if(!installEvt)return;installEvt.prompt();await installEvt.userChoice.catch(()=>{});installEvt=null;$("#install").hidden=true};
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  if(ios){$("#install").hidden=false;const t=$("#installtip");t.hidden=false;
+    t.textContent="Als App nutzen: in Safari auf „Teilen“ tippen, dann „Zum Home-Bildschirm“."}
+}
+window.addEventListener("appinstalled",()=>{$("#install").hidden=true});
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
